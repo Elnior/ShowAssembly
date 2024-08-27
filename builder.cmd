@@ -5,9 +5,11 @@ if Exist bin (
 )
 
 if Exist "show.ico" (
-    csc /out:bin\showAssembly.exe /target:exe /checked+ show.cs iconBytes.cs
+    csc /out:bin\showAssembly.exe /target:exe /checked+ /win32icon:show.ico show.cs iconBytes.cs utils.cs handlers.cs
 ) else (
     echo Falied compilation
 )
 
-pause
+if %ERRORLEVEL% equ 1 (
+    pause
+)

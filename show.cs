@@ -1,13 +1,16 @@
+using Shower;
 using System;
 using System.IO;
-using IconStoraged;
 using System.Drawing;
+using Shower.Handlers;
 using System.Reflection;
+using System.Collections;
+using Shower.IconStoraged;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
 // Assembly type: EXE
 // Assembly Data:
 [assembly: AssemblyTitle("Show Assembly")]
-// [assembly: AssemblyKeyFile("key.snk")]
 [assembly: AssemblyDescription("Show Assembly EXE and DLL")]
 [assembly: AssemblyProduct("Show Assembly")]
 [assembly: AssemblyCopyright("Elnior Loreh")]
@@ -18,27 +21,39 @@ using System.Windows.Forms;
 
 namespace Shower
 {
+	public enum NotifyType : byte
+	{
+		Info,
+		Warn,
+		Question,
+		Error,
+		Stop
+
+	}
 	internal sealed class ViewAssembly : Form
 	{
-		static FontFamily FIRST = FontFamily.Families[0];
-		static FontFamily SECOND = FontFamily.Families[3];
+		public static FontFamily FIRST = FontFamily.GenericMonospace;
+		public static FontFamily SECOND = FontFamily.GenericSerif;
 
 		public Button loadAssemblyButton;
+		public string dirActual;
+		public Graphics graphyInterface;
 		public ViewAssembly (string text, Icon data)
 		{
+			this.dirActual = Directory.GetCurrentDirectory();
 			this.Text = text;
 			// Styles.
 			this.Icon = data;
 			//    BackColor and ForeColor
 			this.BackColor = Color.Black;
 			this.ForeColor = Color.White;
-
 			this.MinimumSize = new Size(300, 400);
+
 			// States
 			this.ShowIcon = true;
 			this.AllowTransparency = true;
 			this.AutoScroll = true;
-			this.AutoSize = true;
+			this.AutoSize = false;
 			this.ShowInTaskbar = true;
 			this.ControlBox = true;
 			this.MaximizeBox = true;
@@ -48,7 +63,6 @@ namespace Shower
 			this.Padding = new Padding(0, 0, 0, 0);
 			// the load assembly button
 			this.loadAssemblyButton = new Button();
-
 		}
 		public static void RefreshStyles (ViewAssembly seeActual, SizeF measure)
 		{
@@ -60,29 +74,169 @@ namespace Shower
 			button.Top = 10;
 			button.Left = (seeActual.Width - button.Width)/2;
 		}
-		public  static void OnClick (object origin, EventArgs details)
+		public static DialogResult Notifying (NotifyType nType, string title, string message)
 		{
-			Button control = (Button)origin;
-			// control.
-			Form form = control.FindForm();
-			form.Controls.Remove(control);
-			Console.WriteLine("Removed!");
-			
+			DialogResult repply = DialogResult.None;
+			if (nType == NotifyType.Info)
+				// Info..
+				repply = MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+			else if (nType == NotifyType.Warn)
+				// Warn..
+				repply = MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+			else if (nType == NotifyType.Question)
+				// Question..
+				repply = MessageBox.Show(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+			else if (nType == NotifyType.Stop)
+			// Stop..
+			repply = MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Stop);
+
+			else 
+			 	// Error..
+				repply = MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+			return repply;
 		}
+		public void OnClick (object originator, EventArgs Arguments)
+		{
+			Graphics graphy = this.graphyInterface;
+			// control.
+			Button control = this.loadAssemblyButton;
+			control.Hide();
+			control = new Button();
+
+			control.Text = "<<Back";
+			control.Font = new Font(FIRST, Single.Parse("20"));
+			
+			SizeF measure = graphy.MeasureString(control.Text + "W", control.Font);
+			/* Static Styles */
+			// Box Properties:
+			control.BackColor = Color.White;
+			control.ForeColor = Color.Black;
+			control.Padding = new Padding(0, 0, 0, 0);
+			control.Margin = new Padding(0, 0, 0, 0);
+			// Using Cursor:
+			control.UseWaitCursor = false;	
+
+			control.Width = (int)measure.Width + 1;
+			control.Height = (int)measure.Height + 5;
+			// Position:
+			control.Top = 10;
+			control.Left = 10;
+
+			this.Text = "Select file";
+			this.Controls.Add(control);
+
+			int down = control.Height + 10 + control.Top;
+
+			ArrayList labelsInserted = new ArrayList();
+			EventHandler delegation = delegate(object of, EventArgs evArgs) {};
+
+			delegation = delegate (object obj, EventArgs details) 
+			{
+				Label elementClicked = (Label)obj;
+				string partialDir = elementClicked.Text;
+				foreach (Label label in labelsInserted)
+				{
+					label.Dispose();
+					this.Controls.Remove(label);
+				}
+				// tengo que lograr hacer pruebas de acceso para evitar excepciones. (Logrado!)
+				if (this.dirActual == "")
+				{
+					if (Directory.Exists(partialDir))
+					{
+						this.Controls.Add(control);
+						this.dirActual = partialDir;
+						labelsInserted = With.setContext(this, down, delegation);
+					}
+					else 
+					{
+						string[] logicalDrives = Directory.GetLogicalDrives();
+						labelsInserted = With.setContext(this, down, delegation, logicalDrives);	
+						Notifying(NotifyType.Warn, "Warning:", "The " + partialDir + " Drive is not found!");
+					}
+				}
+				else 
+				{
+					if (elementClicked.BackColor == Color.Green)
+					{
+						string completePath = "";
+						if (this.dirActual[this.dirActual.Length-1]== '\\')
+							completePath = this.dirActual + partialDir;
+						else
+							completePath = this.dirActual + "\\" + partialDir;
+						this.dirActual = completePath;
+					}
+					else 
+					{
+						string completePath = "";
+						if (this.dirActual[this.dirActual.Length-1]== '\\')
+							completePath = this.dirActual + partialDir;
+						else
+							completePath = this.dirActual + "\\" + partialDir;
+						
+						if (File.Exists(completePath)) 
+							viewAll(completePath, partialDir);
+						else 
+							Notifying(NotifyType.Stop, "Read Message:", partialDir + " does not exist");
+					}
+					labelsInserted = With.setContext(this, down, delegation);
+				}
+			};
+
+			labelsInserted = With.setContext(this, down, delegation);
+
+			control.Click += delegate (object Gn, EventArgs EvArg)
+			{
+				DirectoryInfo parent = Directory.GetParent(this.dirActual);
+				if (parent != null) 
+				{
+					string next = parent.FullName;
+					foreach (Label label in labelsInserted)
+					{
+						label.Dispose();
+						this.Controls.Remove(label);
+					}
+					this.dirActual = next;
+
+					labelsInserted = With.setContext(this, down, delegation);
+				}
+				else
+				{
+					this.Controls.Remove(control);
+					this.dirActual = "";
+					string[] logicalDrives = Directory.GetLogicalDrives();
+
+					foreach (Label label in labelsInserted)
+					{
+						label.Dispose();
+						this.Controls.Remove(label);
+					}
+
+					labelsInserted = With.setContext(this, down, delegation, logicalDrives);	
+				}
+			};
+		}
+
 		public static void OnClosingEvent (object Originator, FormClosingEventArgs args)
 		{
 			DialogResult result;
-			result = MessageBox.Show("Do you want close?", "Question:", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			
+			result = Notifying(NotifyType.Question, "Question:", "Do you want close?");
 			if (result == DialogResult.Yes)
 				args.Cancel = false;
 			else
 				args.Cancel = true;
-
 		}
-		public static void viewAll (Assembly assem)
+		public static void viewAll (string path, string name)
 		{
-			foreach (var element in assem.GetTypes()) 
+			try 
+			{
+				Assembly assem = Assembly.LoadFrom(path);
+				Console.WriteLine(name + " a valid assembly");
+				/*foreach (var element in assem.GetTypes()) 
 				{
 					Console.ForegroundColor = ConsoleColor.Green;
 
@@ -129,32 +283,40 @@ namespace Shower
 					
 					foreach (string posible in Posibles)
 						Console.WriteLine("\u0020\u0020\u0020" + posible);
-
-				}
+				}*/
+			}
+			catch (Exception anyException)
+			{
+				if (anyException is BadImageFormatException)
+					Notifying(NotifyType.Error, "Error:", "\'" + name + "\' file is not a valid assembly");
+				else if (anyException is FileLoadException)
+					Notifying(NotifyType.Stop, "Falied Load:", "The \'" + name + "\' file cannot be loaded because it is in use by another process.");
+				else 
+					Notifying(NotifyType.Stop, "Falied:", "An error occurred while inspecting the \'" + name + "\' file.");
+			}
 		}
-		internal static int Main (params string[] Args)
+		static int Main (params string[] Args)
 		{
 			try 
 			{
 				ViewAssembly see;
 				MemoryStream created;
-				Graphics graphyCreated;
 				
 				Console.ForegroundColor = ConsoleColor.Yellow;
 				created = new MemoryStream(IconSaved.getData());
 				
-				see = new ViewAssembly("Show Assembly", new Icon(created));
-				graphyCreated = see.CreateGraphics();
+				see = new ViewAssembly("Show Assembly: ", new Icon(created));
+				see.graphyInterface = see.CreateGraphics();
 
 				// Add Events Managers
 				// see.FormClosing += new FormClosingEventHandler(OnClosingEvent);
 				
 				Button button = see.loadAssemblyButton;
 				// the Click event.
-				// button.Click += new EventHandler(OnClick);
+				button.Click += new EventHandler(see.OnClick);
 				
 				button.Text = "Load Assembly";
-				button.Font = new Font(FIRST, Single.Parse("20"));
+				button.Font = new Font(SECOND, Single.Parse("20"));
 				/* Static Styles */
 				// Box Properties:
 				button.BackColor = Color.Green;
@@ -165,35 +327,34 @@ namespace Shower
 				button.UseWaitCursor = false;				
 				see.Controls.Add(button);
 				// Dinamic Styles
-				SizeF measure = graphyCreated.MeasureString(button.Text + "W", button.Font);
+				SizeF measure = see.graphyInterface.MeasureString(button.Text + "W", button.Font);
 				
 				RefreshStyles(see, measure);
-
 
 				see.Resize += delegate (object origin, EventArgs args)
 				{
 					RefreshStyles(see, measure);
-				};
-
-				// ShowMembers<SizeF>();
+				};				
 				Application.Run(see);
-				
+				// ShowMembers( typeof(File) );
+				// Console.WriteLine();
 			}
 			catch (Exception exception)
 			{
 				Console.ForegroundColor = ConsoleColor.Red;
+				MessageBox.Show("Success Error (0x0001): Checkout source..");
 				Console.WriteLine("Success Error (0x0001): " + exception);
 			}
 			finally 
 			{
 				Console.ResetColor();
 			}			
-			return Args.Length;
+			return 0;
 		}
 		static void ShowMembers<TSelected> ()
 		{
 			MemberInfo[] members;
-			members = typeof(TSelected).GetMembers();
+			members = typeof(TSelected).GetProperties();
 
 			Console.ForegroundColor = ConsoleColor.Cyan;
 			foreach (MemberInfo member in members)
@@ -204,7 +365,9 @@ namespace Shower
 		static void ShowMembers (Type selected)
 		{
 			MemberInfo[] members;
-			members = selected.GetMembers(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+			// members = selected.GetMembers(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+			members = selected.GetMembers();
+
 
 			Console.ForegroundColor = ConsoleColor.Cyan;
 			foreach (MemberInfo member in members)
@@ -214,4 +377,3 @@ namespace Shower
 		}
 	}
 }
-

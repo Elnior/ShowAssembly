@@ -1,4 +1,4 @@
-namespace IconStoraged
+namespace Shower.IconStoraged
 {
     struct IconSaved
     {
