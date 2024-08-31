@@ -5,7 +5,7 @@ if Exist bin (
 )
 
 if Exist "show.ico" (
-    csc /out:bin\showAssembly.exe /target:exe /checked+ /win32icon:show.ico show.cs iconBytes.cs utils.cs handlers.cs
+    csc /out:bin\showAssembly.exe /target:winexe /checked+ /win32icon:show.ico show.cs iconBytes.cs utils.cs handlers.cs seeMore.cs
 ) else (
     echo Falied compilation
 )

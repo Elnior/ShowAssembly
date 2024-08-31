@@ -1,6 +1,6 @@
 namespace Shower.Utils 
 {
-	public static class NameProccessor
+	public static class NameProcessor
 	{
 		public static string getName(string direction)
 		{

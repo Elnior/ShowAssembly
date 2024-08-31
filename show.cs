@@ -1,4 +1,3 @@
-using Shower;
 using System;
 using System.IO;
 using System.Drawing;
@@ -7,14 +6,13 @@ using System.Reflection;
 using System.Collections;
 using Shower.IconStoraged;
 using System.Windows.Forms;
-using System.Runtime.InteropServices;
 // Assembly type: EXE
 // Assembly Data:
 [assembly: AssemblyTitle("Show Assembly")]
 [assembly: AssemblyDescription("Show Assembly EXE and DLL")]
 [assembly: AssemblyProduct("Show Assembly")]
 [assembly: AssemblyCopyright("Elnior Loreh")]
-[assembly: AssemblyTrademark("Show Assembly")]
+[assembly: AssemblyTrademark("Microsof .Net")]
 [assembly: AssemblyCompany("Oxoh")]
 [assembly: AssemblyConfiguration("None")]
 [assembly: AssemblyVersion("1.0.0.0")]
@@ -28,12 +26,13 @@ namespace Shower
 		Question,
 		Error,
 		Stop
-
 	}
 	internal sealed class ViewAssembly : Form
 	{
 		public static FontFamily FIRST = FontFamily.GenericMonospace;
 		public static FontFamily SECOND = FontFamily.GenericSerif;
+
+		public static EventHandler LOADER;
 
 		public Button loadAssemblyButton;
 		public string dirActual;
@@ -42,6 +41,7 @@ namespace Shower
 		{
 			this.dirActual = Directory.GetCurrentDirectory();
 			this.Text = text;
+
 			// Styles.
 			this.Icon = data;
 			//    BackColor and ForeColor
@@ -71,7 +71,6 @@ namespace Shower
 			button.Width = (int)measure.Width + 1;
 			button.Height = (int)measure.Height + 5;
 			// Position:
-			button.Top = 10;
 			button.Left = (seeActual.Width - button.Width)/2;
 		}
 		public static DialogResult Notifying (NotifyType nType, string title, string message)
@@ -104,7 +103,9 @@ namespace Shower
 			Graphics graphy = this.graphyInterface;
 			// control.
 			Button control = this.loadAssemblyButton;
+
 			control.Hide();
+
 			control = new Button();
 
 			control.Text = "<<Back";
@@ -161,6 +162,7 @@ namespace Shower
 				}
 				else 
 				{
+					bool isProcessed = false;
 					if (elementClicked.BackColor == Color.Green)
 					{
 						string completePath = "";
@@ -178,12 +180,12 @@ namespace Shower
 						else
 							completePath = this.dirActual + "\\" + partialDir;
 						
-						if (File.Exists(completePath)) 
-							viewAll(completePath, partialDir);
+						if (File.Exists(completePath))
+							isProcessed = viewAll(completePath, partialDir, this, control);
 						else 
 							Notifying(NotifyType.Stop, "Read Message:", partialDir + " does not exist");
 					}
-					labelsInserted = With.setContext(this, down, delegation);
+					if(!isProcessed) labelsInserted = With.setContext(this, down, delegation);
 				}
 			};
 
@@ -220,7 +222,6 @@ namespace Shower
 				}
 			};
 		}
-
 		public static void OnClosingEvent (object Originator, FormClosingEventArgs args)
 		{
 			DialogResult result;
@@ -230,60 +231,49 @@ namespace Shower
 			else
 				args.Cancel = true;
 		}
-		public static void viewAll (string path, string name)
+		public static bool viewAll (string path, string name, ViewAssembly form, Button backButton)
 		{
 			try 
 			{
+				ArrayList elementsInserted = new ArrayList();
 				Assembly assem = Assembly.LoadFrom(path);
-				Console.WriteLine(name + " a valid assembly");
-				/*foreach (var element in assem.GetTypes()) 
+				AssemblyName inform = assem.GetName();
+				// control.
+				form.loadAssemblyButton.BackColor = Color.Purple;
+				form.loadAssemblyButton.Text = "Load Other";
+				form.loadAssemblyButton.Show();
+				form.Text = inform.Name + "("+ inform.Version + ")";
+
+				int down = form.loadAssemblyButton.Height + 10 + form.loadAssemblyButton.Top;
+				AssemblyName[] referencedAssemblies = assem.GetReferencedAssemblies();
+				Type[] tps = assem.GetTypes();
+
+				With.viewData(inform, form, down, referencedAssemblies, tps, elementsInserted);
+
+				EventHandler cleaner = delegate (object A, EventArgs B){};
+
+				cleaner = delegate (object porvo, EventArgs allInfo)
 				{
-					Console.ForegroundColor = ConsoleColor.Green;
-
-					string typeName = "Type : ";
-					if (element.IsClass)
+					foreach(Control element in elementsInserted)
 					{
-						if (element.IsAbstract)
-							typeName = "Abstract Class -> \u0020";
-						else 
-							typeName = "Class -> \u0020";
+						element.Dispose();
+						form.Controls.Remove(element);
 					}
-					else if (element.IsInterface)
-							typeName = "Interface -> \u0020";
-
-					else if (element.IsEnum)
-							typeName = "Enumeration -> \u0020";
-					Console.Write(typeName);
-					Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.WriteLine(element + ":");
-
-					MemberInfo[][] upScale;
-					upScale = new MemberInfo[][]
-					{
-						element.GetMembers(BindingFlags.IgnoreCase | BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy | BindingFlags.InvokeMethod | BindingFlags.CreateInstance | BindingFlags.GetField | BindingFlags.SetField | BindingFlags.GetProperty | BindingFlags.SetProperty | BindingFlags.PutDispProperty | BindingFlags.PutRefDispProperty | BindingFlags.ExactBinding | BindingFlags.SuppressChangeType | BindingFlags.OptionalParamBinding | BindingFlags.IgnoreReturn),
-						element.GetMembers()
-					};
-
-					string allPosibles;
-					allPosibles = "";
-
-					foreach(MemberInfo[] members in upScale) 
-					{
-						foreach(MemberInfo actual in members) 
-						{
-							string ev;
-							ev = actual.ToString();
-							if (allPosibles.IndexOf(ev) == -1)
-								allPosibles += ev + ",";
-						}
-					}
-					string[] Posibles = allPosibles.Split(',');
-
-					Console.ForegroundColor = ConsoleColor.Cyan;
 					
-					foreach (string posible in Posibles)
-						Console.WriteLine("\u0020\u0020\u0020" + posible);
-				}*/
+					form.loadAssemblyButton.BackColor = Color.Green;
+					form.loadAssemblyButton.Text = "Load Assembly";
+					form.Text = "Show Assembly";
+
+					form.loadAssemblyButton.Click -= cleaner;
+					form.loadAssemblyButton.Click += LOADER;
+				};
+
+				form.loadAssemblyButton.Click -= LOADER;
+				form.loadAssemblyButton.Click += cleaner;
+
+				backButton.Dispose();
+				form.Controls.Remove(backButton);
+				return true;
 			}
 			catch (Exception anyException)
 			{
@@ -293,27 +283,30 @@ namespace Shower
 					Notifying(NotifyType.Stop, "Falied Load:", "The \'" + name + "\' file cannot be loaded because it is in use by another process.");
 				else 
 					Notifying(NotifyType.Stop, "Falied:", "An error occurred while inspecting the \'" + name + "\' file.");
+				return false;
 			}
 		}
 		static int Main (params string[] Args)
 		{
 			try 
 			{
+				Application.SetCompatibleTextRenderingDefault(false);
+
 				ViewAssembly see;
 				MemoryStream created;
 				
-				Console.ForegroundColor = ConsoleColor.Yellow;
 				created = new MemoryStream(IconSaved.getData());
 				
-				see = new ViewAssembly("Show Assembly: ", new Icon(created));
+				see = new ViewAssembly("Show Assembly", new Icon(created));
+				LOADER = new EventHandler(see.OnClick);
 				see.graphyInterface = see.CreateGraphics();
 
 				// Add Events Managers
-				// see.FormClosing += new FormClosingEventHandler(OnClosingEvent);
+				see.FormClosing += new FormClosingEventHandler(OnClosingEvent);
 				
 				Button button = see.loadAssemblyButton;
 				// the Click event.
-				button.Click += new EventHandler(see.OnClick);
+				button.Click += LOADER;
 				
 				button.Text = "Load Assembly";
 				button.Font = new Font(SECOND, Single.Parse("20"));
@@ -324,7 +317,8 @@ namespace Shower
 				button.Padding = new Padding(0, 0, 0, 0);
 				button.Margin = new Padding(0, 0, 0, 0);
 				// Using Cursor:
-				button.UseWaitCursor = false;				
+				button.UseWaitCursor = false;	
+				button.Top = 10;
 				see.Controls.Add(button);
 				// Dinamic Styles
 				SizeF measure = see.graphyInterface.MeasureString(button.Text + "W", button.Font);
@@ -334,46 +328,16 @@ namespace Shower
 				see.Resize += delegate (object origin, EventArgs args)
 				{
 					RefreshStyles(see, measure);
-				};				
+				};	
+				Application.EnableVisualStyles();
+				// Start App
 				Application.Run(see);
-				// ShowMembers( typeof(File) );
-				// Console.WriteLine();
 			}
-			catch (Exception exception)
+			catch 
 			{
-				Console.ForegroundColor = ConsoleColor.Red;
 				MessageBox.Show("Success Error (0x0001): Checkout source..");
-				Console.WriteLine("Success Error (0x0001): " + exception);
 			}
-			finally 
-			{
-				Console.ResetColor();
-			}			
 			return 0;
-		}
-		static void ShowMembers<TSelected> ()
-		{
-			MemberInfo[] members;
-			members = typeof(TSelected).GetProperties();
-
-			Console.ForegroundColor = ConsoleColor.Cyan;
-			foreach (MemberInfo member in members)
-				Console.WriteLine("\r\n" + member);
-
-			Console.ResetColor();
-		}
-		static void ShowMembers (Type selected)
-		{
-			MemberInfo[] members;
-			// members = selected.GetMembers(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-			members = selected.GetMembers();
-
-
-			Console.ForegroundColor = ConsoleColor.Cyan;
-			foreach (MemberInfo member in members)
-				Console.WriteLine("\r\n" + member);
-
-			Console.ResetColor();
 		}
 	}
 }
